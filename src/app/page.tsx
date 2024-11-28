@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import axios, { CancelToken } from "axios";
 import RepoList from "./components/RepoList";
 import Pagination from "./components/Pagination";
 
@@ -17,7 +17,7 @@ type Repo = {
 };
 
 const Home: React.FC = () => {
-  const [repos, setRepos] = useState<Repo[]>([]);
+  const [repos, setRepos] = useState<{ [key: number]: Repo[] }>({});
   const [loading, setLoading] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
@@ -30,29 +30,45 @@ const Home: React.FC = () => {
     return date.toISOString().split("T")[0]; // Format as YYYY-MM-DD
   };
 
-  const fetchRepos = async (pageNum: number) => {
+  const fetchRepos = async (pageNum: number, cancelToken: CancelToken) => {
+    if (repos[pageNum]) {
+      return;
+    }
+
     setLoading(true);
     setError(null); // Reset errors on fetch
     try {
       const response = await axios.get(
-        `https://api.github.com/search/repositories?q=created:%3E${getLastTenDaysDate()}&sort=stars&order=desc&page=${pageNum}`
+        `https://api.github.com/search/repositories?q=created:%3E${getLastTenDaysDate()}&sort=stars&order=desc&page=${pageNum}`,
+        { cancelToken }
       );
       const newRepos = response.data.items;
 
-      setRepos((prevRepos) =>
-        pageNum === 1 ? newRepos : [...prevRepos, ...newRepos]
-      );
+      setRepos((prevRepos) => ({
+        ...prevRepos,
+        [pageNum]: newRepos,
+      }));
 
       setHasMore(newRepos.length > 0);
     } catch (error) {
-      setError("Failed to fetch repositories. Please try again.");
+      if (axios.isCancel(error)) {
+        console.log("request canceled");
+      } else {
+        setError("Failed to fetch repositories. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRepos(page);
+    const source = axios.CancelToken.source();
+
+    fetchRepos(page, source.token);
+
+    return () => {
+      source.cancel("Unmounted or new request created");
+    };
   }, [page]);
 
   return (
@@ -67,8 +83,8 @@ const Home: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center">
         {error && <div className="text-center text-red-500 mt-4">{error}</div>}
-        {repos.length > 0 ? (
-          <RepoList repos={repos} />
+        {repos[page] ? (
+          <RepoList repos={repos[page]} />
         ) : (
           <div className="text-center text-gray-600">
             No repositories found.
