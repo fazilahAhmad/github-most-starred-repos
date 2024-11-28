@@ -11,10 +11,15 @@ const Pagination: React.FC<PaginationProps> = ({
   hasMore,
   onPageChange,
 }) => {
+  const onPageChangeHandler = (page: number) => {
+    onPageChange(page);
+    window.scrollTo(0, 0);
+  };
+
   return (
     <div className="flex justify-center items-center">
       <button
-        onClick={() => onPageChange(currentPage - 1)}
+        onClick={() => onPageChangeHandler(currentPage - 1)}
         disabled={currentPage === 1}
         className="px-4 py-2 bg-gray-300 rounded-md mx-2 disabled:opacity-50"
       >
@@ -22,7 +27,7 @@ const Pagination: React.FC<PaginationProps> = ({
       </button>
       <span className="mx-4 text-gray-700">{`Page ${currentPage}`}</span>
       <button
-        onClick={() => onPageChange(currentPage + 1)}
+        onClick={() => onPageChangeHandler(currentPage + 1)}
         disabled={!hasMore}
         className="px-4 py-2 bg-gray-300 rounded-md mx-2 disabled:opacity-50"
       >
